@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Paint</title>
+    <script src="./scripts/index.js"></script>
+    <script src="./scripts/jscolor.js"></script>
+    <link rel="stylesheet" href="main.css" />
+  </head>
+  <body>
+    <div class="control-panel">
+      <button class="select-shape">Brush</button>
+      <button class="select-shape">Line</button>
+      <button class="select-shape">Rectangle</button>
+      <button class="select-shape">Circle</button>
+      <!-- <button class="select-shape">Polygon</button> -->
+      <input
+        type="range"
+        name="border-width"
+        id="border-width"
+        min="1"
+        max="25"
+        value="1"
+      />
+      <span id="border-width-value">1</span>
+      <select name="is-fill" id="is-fill">
+        <option value="0">Stroke</option>
+        <option value="1">Fill</option>
+      </select>
+      <input id="shape-color" class="jscolor" value="000000" />
+      <button id="clear">Clear</button>
+      <button id="save">Save</button>
+    </div>
+    <canvas id="paint-canvas"></canvas>
+  </body>
+</html>

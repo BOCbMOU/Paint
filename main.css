@@ -1,0 +1,25 @@
+* {
+  margin: 0;
+  z-index: 1;
+}
+
+#border-width {
+  vertical-align: bottom;
+}
+
+#border-width-value {
+  color: #fff;
+  font-family: 'Calibri';
+  font-weight: 500;
+}
+
+#paint-canvas {
+  position: fixed;
+  z-index: 0;
+}
+
+.control-panel {
+  position: fixed;
+  padding: 2px;
+  background: #222b;
+}
