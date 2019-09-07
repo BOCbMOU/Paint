@@ -16,25 +16,7 @@ const onWindowLoad = () => {
     : { x: 0, y: 0 };
   const savedImageData = window.localStorage.getItem('imageData');
 
-  const imageData = savedImageData
-    ? savedImageData
-        .slice(1, -2)
-        .split('"},{')
-        .map(str => {
-          if (str.indexOf('[') === -1) {
-            return JSON.parse(`{${str}"}`);
-          } else {
-            let tempStr = str.split('[');
-            tempStr = [tempStr[0], ...tempStr[1].split(']')];
-            const correctObject = JSON.parse(`{${tempStr[0]}{}${tempStr[2]}"}`);
-            correctObject.end = tempStr[1]
-              .slice(1, -1)
-              .split('},{')
-              .map(str => JSON.parse(`{${str}}`));
-            return correctObject;
-          }
-        })
-    : [];
+  const imageData = savedImageData ? JSON.parse(`[${savedImageData}]`) : [];
 
   // create canvas
   const canvas = document.getElementById('paint-canvas');
@@ -78,6 +60,8 @@ const onWindowLoad = () => {
   // main variables
   let isDrawing = false;
   let isTranslating = false;
+  let isRotate = false;
+  let templeAngle = 0;
   let currentShape = BRUSH;
   const brushDots = [];
   let borderWidth = 1;
@@ -153,18 +137,19 @@ const onWindowLoad = () => {
 
   // get correct mouse pos
   const getMousePos = event => {
-    const x = event.pageX - canvas.offsetLeft - translate.x;
-    const y = event.pageY - canvas.offsetTop - translate.y;
+    const x = (event.pageX - canvas.offsetLeft - translate.x) / scale;
+    const y = (event.pageY - canvas.offsetTop - translate.y) / scale;
     return { x, y };
   };
   // mouse events
   const onMouseDown = event => {
     event.preventDefault();
+    let { x, y } = getMousePos(event);
+
     switch (event.which) {
       case 1:
-        const { x, y } = getMousePos(event);
-        currentPos.x = templeEndPos.x = x / scale;
-        currentPos.y = templeEndPos.y = y / scale;
+        currentPos.x = x;
+        currentPos.y = y;
         isDrawing = true;
         break;
       case 2:
@@ -172,8 +157,11 @@ const onWindowLoad = () => {
         currentPos.y = event.pageY;
         isTranslating = true;
         break;
-      // case 3:
-      //   break;
+      case 3:
+        const { start, angle = 0 } = imageData[imageData.length - 1];
+        templeAngle = Math.atan2(y - start.y, x - start.x) - angle;
+        isRotate = true;
+        break;
       default:
         break;
     }
@@ -182,16 +170,18 @@ const onWindowLoad = () => {
 
   const onMouseMove = event => {
     if (isDrawing) {
+      let { x, y } = getMousePos(event);
+      x -= currentPos.x;
+      y -= currentPos.y;
+
       if (currentShape === BRUSH) {
-        const { x, y } = getMousePos(event);
         brushDots.push({
-          x: x / scale,
-          y: y / scale,
+          x: x,
+          y: y,
         });
       } else {
-        const { x, y } = getMousePos(event);
-        templeEndPos.x = x / scale;
-        templeEndPos.y = y / scale;
+        templeEndPos.x = x;
+        templeEndPos.y = y;
       }
       render();
       return;
@@ -204,6 +194,14 @@ const onWindowLoad = () => {
       currentPos.x = x;
       currentPos.y = y;
       render();
+      return;
+    }
+    if (isRotate) {
+      const { start } = imageData[imageData.length - 1];
+      const { x, y } = getMousePos(event);
+      imageData[imageData.length - 1].angle =
+        Math.atan2(y - start.y, x - start.x) - templeAngle;
+      render();
     }
   };
   window.addEventListener('mousemove', onMouseMove);
@@ -212,7 +210,17 @@ const onWindowLoad = () => {
     event.preventDefault();
     switch (event.which) {
       case 1:
-        const { x, y } = getMousePos(event);
+        if (
+          (currentShape === BRUSH && brushDots.length === 0) ||
+          (currentShape !== BRUSH && templeEndPos.x === null)
+        ) {
+          isDrawing = false;
+          break;
+        }
+        let { x, y } = getMousePos(event);
+        x -= currentPos.x;
+        y -= currentPos.y;
+
         imageData.push({
           shape: currentShape,
           start: { x: currentPos.x, y: currentPos.y },
@@ -220,13 +228,14 @@ const onWindowLoad = () => {
             currentShape === BRUSH
               ? [...brushDots]
               : {
-                  x: x / scale,
-                  y: y / scale,
+                  x: x,
+                  y: y,
                 },
           lineWidth: borderWidth,
           isFill: isCurrentFill,
           color: currentColor,
         });
+        templeEndPos.x = null;
         isDrawing = false;
         brushDots.length = 0;
         render();
@@ -234,13 +243,19 @@ const onWindowLoad = () => {
       case 2:
         isTranslating = false;
         break;
-      // case 3:
-      //   break;
+      case 3:
+        isRotate = false;
+        break;
       default:
         break;
     }
   };
   canvas.addEventListener('mouseup', onMouseUp);
+
+  const onContextMenu = event => {
+    event.preventDefault();
+  };
+  canvas.addEventListener('contextmenu', onContextMenu);
 
   // rendering
   const render = () => {
@@ -264,27 +279,33 @@ const onWindowLoad = () => {
     ctx.restore();
   };
 
-  const renderShape = ({ shape, start, end, lineWidth, isFill, color }) => {
+  const renderShape = data => {
+    const { shape, start, end, lineWidth, isFill, color, angle = 0 } = data;
+
     ctx.save();
-    ctx.beginPath();
+    ctx.translate(start.x, start.y);
+    ctx.rotate(angle);
+
     ctx.lineWidth = lineWidth;
     ctx.strokeStyle = color;
     ctx.fillStyle = color;
+
+    ctx.beginPath();
     switch (shape) {
       case BRUSH:
-        ctx.moveTo(start.x, start.y);
+        ctx.moveTo(0, 0);
         for (const dot of end) {
           ctx.lineTo(dot.x, dot.y);
         }
         ctx.stroke();
         break;
       case LINE:
-        ctx.moveTo(start.x, start.y);
+        ctx.moveTo(0, 0);
         ctx.lineTo(end.x, end.y);
         ctx.stroke();
         break;
       case RECTANGLE:
-        ctx.rect(start.x, start.y, end.x - start.x, end.y - start.y);
+        ctx.rect(0, 0, end.x, end.y);
         if (isFill) {
           ctx.fill();
         } else {
@@ -292,13 +313,7 @@ const onWindowLoad = () => {
         }
         break;
       case CIRCLE:
-        ctx.arc(
-          start.x,
-          start.y,
-          Math.sqrt((end.x - start.x) ** 2 + (end.y - start.y) ** 2),
-          0,
-          2 * Math.PI
-        );
+        ctx.arc(0, 0, Math.sqrt(end.x ** 2 + end.y ** 2), 0, 2 * Math.PI);
         if (isFill) {
           ctx.fill();
         } else {
